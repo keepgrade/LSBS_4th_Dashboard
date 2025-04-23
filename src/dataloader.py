@@ -23,6 +23,16 @@ warnings.filterwarnings('ignore')
 
 
 
+def risk_material(material):
+    materials = ["CompShg", "Tar&Grv", "WdShake", "WdShngl", "Metal", "Roll", "Membran"]
+    risk_point = [2,2,5,4,1,3,3]
+    mat_risk = {mat: risk for mat, risk in zip(materials, risk_point)}
+
+    if material in mat_risk.keys():
+        return mat_risk[material]
+    else:
+        return 0
+    
 class DataLoader:
     def __init__(self):
         self.data = pd.read_csv('../data/ames.csv')
@@ -33,5 +43,9 @@ class DataLoader:
             self.data['YrSold'].astype(str) + '-' + self.data['MoSold'].astype(str),
             format='%Y-%m'
         )
+        
+        self.data['Risk_RoofMatl'] = self.data['RoofMatl'].apply(risk_material) 
+
+        
         return self.data
     
