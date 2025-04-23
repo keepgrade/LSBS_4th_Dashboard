@@ -15,6 +15,8 @@ import json
 
 warnings.filterwarnings('ignore')
 
+
+# 주택 가격 분류
 # ---------------------------
 # 📂 데이터 로딩
 # ---------------------------
@@ -141,8 +143,6 @@ fig.update_layout(
 # 지도 출력
 fig.show()
 
-
-
 import os
 import shutil
 import numpy as np
@@ -159,6 +159,8 @@ import plotly.graph_objects as go
 import json
 
 warnings.filterwarnings('ignore')
+
+# 주택 평단가 분류
 
 # ---------------------------
 # 📂 데이터 로딩

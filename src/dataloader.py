@@ -30,7 +30,6 @@ class DataLoader:
         Exterior1st_risk_point = [5,4,1,3,5,5,2,1,1,1,1,2,4,1,1]
         Exterior1st_dict = {m:p for m,p in zip(Exterior1st_materials, Exterior1st_risk_point)}
         
-        
         Exterior2nd_materials = ['Wd Sdng', 'HdBoard', 'MetalSd', 'VinylSd', 'Wd Shng', 'Plywood',
             'Stucco', 'CmentBd', 'AsbShng', 'ImStucc', 'BrkFace', 'Brk Cmn',
             'CBlock', 'AsphShn', 'Stone', 'PreCast']
@@ -51,14 +50,16 @@ class DataLoader:
         merged_dict = merge_dict(left = merged_dict,
                                 right = MasVnrType_dict)
         
-        # make 
+        # make derived parameters about risk of materials
         for param in params:
             data[f'Risk_{param}'] = data[param].apply(lambda x: risk_material(material = x, mat_risk = merged_dict)) 
-
         data['Risk_WoodDeckSF'] = data['WoodDeckSF'].apply(risk_ranges)
-        
         return data
 
+    def SF_calculator(self, data):
+        
+        return None
+    
     def load_data(self):
         self.data['Date'] = pd.to_datetime(
             self.data['YrSold'].astype(str) + '-' + self.data['MoSold'].astype(str),

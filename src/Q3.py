@@ -17,8 +17,7 @@ from sklearn.impute import IterativeImputer
 import warnings
 warnings.filterwarnings('ignore')
 
-os.chdir('./src')
-dataloader = DataLoader()
+# os.chdir('./src')
 
 # 1. 전처리 수행
 def preprocess_data(ames):
@@ -59,55 +58,19 @@ def preprocess_data(ames):
 # 2. 위험 등급 설정
 def create_risk_categories(ames):
     """외장재, 판매액, 내장재에 대한 위험 등급 설정"""
-    # 외장재 위험 등급 (재료 유형에 따라 위험도 설정)
-    # 예시: 목재 > 비닐 사이딩 > 벽돌 > 석재 (화재 위험도 순)
-    exterior_material_map = {
-        'VinylSd': 4,    # 비닐 사이딩: 중간 위험
-        'HdBoard': 5,    # 하드보드: 높은 위험
-        'Wd Sdng': 5,    # 목재 사이딩: 높은 위험 
-        'Plywood': 5,    # 합판: 높은 위험
-        'WdShing': 5,    # 목재 외장: 높은 위험
-        'MetalSd': 3,    # 금속 사이딩: 낮은 위험
-        'Stucco': 2,     # 스투코: 낮은 위험
-        'BrkFace': 2,    # 벽돌 외장: 낮은 위험
-        'AsbShng': 4,    # 석면 외장: 중간 위험
-        'CemntBd': 3,    # 시멘트 보드: 중간 위험
-        'Stone': 1,      # 석재: 매우 낮은 위험
-        'BrkComm': 2,    # 공용 벽돌: 낮은 위험
-        'ImStucc': 2,    # 모조 스투코: 낮은 위험
-        'AsphShn': 4     # 아스팔트 외장: 중간 위험
-    }
-    
-    # 없는 값은 중간 위험(3)으로 설정
-    ames['ExteriorRisk'] = ames['Exterior1st'].map(lambda x: exterior_material_map.get(x, 3))
-    
-    # 판매액 위험 등급 (가격대별 위험도 설정: 높은 가격 = 높은 피해액)
-    price_bins = [0, 100000, 200000, 300000, 500000, float('inf')]
-    price_labels = [1, 2, 3, 4, 5]  # 1: 매우 낮음, 5: 매우 높음
-    ames['PriceRisk'] = pd.cut(ames['SalePrice'], bins=price_bins, labels=price_labels)
-    ames['PriceRisk'] = ames['PriceRisk'].astype(int)
-    
-    # 내장재 위험 등급 (재료 유형에 따라)
-    interior_quality_map = {
-        'Ex': 5,  # 최고급: 고가 내장재로 피해액 높음
-        'Gd': 4,  # 좋음
-        'TA': 3,  # 평균
-        'Fa': 2,  # 보통
-        'Po': 1   # 낮음: 저가 내장재로 피해액 낮음
-    }
-    
-    # 없는 값은 중간 위험(3)으로 설정
-    ames['InteriorRisk'] = ames['KitchenQual'].map(lambda x: interior_quality_map.get(x, 3))
     
     # 종합 위험 점수 계산 (각 요소별 가중치 적용)
     ames['TotalRiskScore'] = (
-        ames['ExteriorRisk'] * 0.3 + 
-        ames['PriceRisk'] * 0.5 + 
-        ames['InteriorRisk'] * 0.2
+        ames['Risk_RoofMatl'] * 0.3 +
+        ames['Risk_Exterior1st'] * 0.3 +
+        ames['Risk_Exterior2nd'] * 0.1 +
+        ames['Risk_MasVnrType'] * 0.1 +
+        ames['Risk_WoodDeckSF'] * 0.2
     )
     
     # 피해액 추정 (기본 공식: 위험점수 x 판매액 x 0.1)
     # 화재 시 건물 가치의 일정 비율이 손실된다고 가정
+    # 
     ames['EstimatedDamage'] = ames['TotalRiskScore'] * ames['SalePrice'] * 0.1
     
     return ames
@@ -365,8 +328,11 @@ def main(ames, sample_indices=None):
 
 if __name__ == "__main__":
 
-    # 에임즈 데이터셋
+    dataloader = DataLoader()
     dataset = dataloader.load_data()
+    
+    risk_columns = [c for c in dataset.columns if c.split('_')[0] == 'Risk']
+    risk_columns
     
     dataset, model_results, best_model_name, best_model = main(dataset)
     
