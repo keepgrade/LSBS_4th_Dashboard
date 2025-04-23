@@ -3,58 +3,53 @@ from dataloader import DataLoader
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Lasso, Ridge
 from sklearn.metrics import mean_squared_error, r2_score
 from scipy import stats
+from sklearn.impute import SimpleImputer
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+
 import warnings
 warnings.filterwarnings('ignore')
 
 # os.chdir('./src')
 
-def load_and_explore_data(ames):
-    print("데이터셋 형태:", ames.shape)
-    print("\n처음 5개 행:")
-    print(ames.head())
-    
-    # 결측치 확인
-    missing_values = ames.isnull().sum()
-    print("\n결측치 갯수:")
-    print(missing_values[missing_values > 0])
-    
-    # 데이터 타입 확인
-    print("\n데이터 타입:")
-    print(ames.dtypes)
-    
-    return ames
-
+# 1. 전처리 수행
 def preprocess_data(ames):
-    """데이터 전처리 수행"""
-    # 결측치 처리
-    # 수치형 변수의 결측치는 중앙값으로 대체
+    # 수치형 변수와 범주형 변수 분리
     numeric_cols = ames.select_dtypes(include=['int64', 'float64']).columns
-    for col in numeric_cols:
-        if ames[col].isnull().sum() > 0:
-            ames[col].fillna(ames[col].median(), inplace=True)
-    
-    # 범주형 변수의 결측치는 최빈값으로 대체
     categorical_cols = ames.select_dtypes(include=['object']).columns
     for col in categorical_cols:
         if ames[col].isnull().sum() > 0:
-            ames[col].fillna(ames[col].mode()[0], inplace=True)
+            # 최빈값 직접 계산 후 할당
+            mode_value = ames[col].mode()[0]
+            ames[col].fillna(mode_value, inplace=True)
     
-    # 이상치 처리 (예: SalePrice가 너무 높거나 낮은 경우)
+    numeric_data = ames[numeric_cols].copy()
+
+    # 수치형 변수 결측치 대체 (by.회귀)
+    mice_imputer = IterativeImputer(max_iter=10, random_state=42)
+    ames[numeric_cols] = mice_imputer.fit_transform(numeric_data)
+    
+    # 범주형 변수 결측치 대체 (by.최빈값)
+    for col in categorical_cols:
+        if ames[col].isnull().sum() > 0:
+            cat_imputer = SimpleImputer(strategy='most_frequent')
+            ames[col] = cat_imputer.fit_transform(ames[[col]])
+    
+    # 이상치 탐색
     Q1 = ames['SalePrice'].quantile(0.25)
     Q3 = ames['SalePrice'].quantile(0.75)
     IQR = Q3 - Q1
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
     
-    # 이상치 제거 대신 경계값으로 대체
+    # 이상치 경계값으로 대체
     ames.loc[ames['SalePrice'] < lower_bound, 'SalePrice'] = lower_bound
     ames.loc[ames['SalePrice'] > upper_bound, 'SalePrice'] = upper_bound
     
@@ -300,15 +295,12 @@ def explain_model_selection(results):
 def main(ames, sample_indices=None):
     print("===== 화재 발생 시 예상 피해액 모델링 =====\n")
     
-    # 1. 데이터 탐색 및 전처리
-    print("1. 데이터 탐색 중...")
-    ames = load_and_explore_data(ames)
-    
-    print("\n2. 데이터 전처리 중...")
+    # 1. 데이터 전처리
+    print("\n1. 데이터 전처리 중...")
     ames = preprocess_data(ames)
     
     # 2. 위험 등급 설정
-    print("\n3. 위험 등급 설정 중...")
+    print("\n2. 위험 등급 설정 중...")
     ames = create_risk_categories(ames)
     print("위험 등급 설정 완료!")
     print("- 외장재 위험 등급 (1-5): 낮을수록 안전")
@@ -316,7 +308,7 @@ def main(ames, sample_indices=None):
     print("- 내장재 위험 등급 (1-5): 낮을수록 안전")
     
     # 3. 표본 대표성 검증
-    print("\n4. 표본 대표성 검증 중...")
+    print("\n3. 표본 대표성 검증 중...")
     has_representation, test_results = sample_representation_test(ames, sample_indices)
     
     if not has_representation:
@@ -325,17 +317,17 @@ def main(ames, sample_indices=None):
         print("\n표본이 모집단을 적절히 대표, 모델링 진행 가능")
     
     # 4. 피해액 예측 모델 구축
-    print("\n5. 피해액 예측 모델 구축 중...")
+    print("\n4. 피해액 예측 모델 구축 중...")
     model_results = build_prediction_models(ames)
     
     # 5. 최종 모델 선택 및 설명
-    print("\n6. 최종 모델 선택 및 설명...")
+    print("\n5. 최종 모델 선택 및 설명...")
     best_model_name, best_model = explain_model_selection(model_results)
     
     return ames, model_results, best_model_name, best_model
 
 if __name__ == "__main__":
-    
+
     dataloader = DataLoader()
     dataset = dataloader.load_data()
     
