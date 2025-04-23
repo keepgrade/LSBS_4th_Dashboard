@@ -1,0 +1,146 @@
+---
+title: "LS_BS_4th_6조 - Ames Housing Dashboard"
+format:
+  dashboard:
+    theme: morph
+    logo: images/beetle.png
+    sidebar: true
+    page-navigation: true
+    reader-mode: false
+    nav-buttons:
+      - icon: github
+        href: https://github.com/your-repo-link
+      - icon: globe
+        href: https://your-site-link
+---
+
+# 🏡 주택 화재 리스크 및 보험금 예측 대시보드
+
+이 대시보드는 Ames Housing 데이터를 활용해 **화재 리스크 예측 및 보험금 추정** 모델링을 시각화합니다.
+
+---
+
+## 🎬 인트로: 심슨 가족의 집
+
+- Ames 시에 새로운 집을 구한 심슨 가족
+- "만약 이 집에 화재가 난다면, 얼마나 보상받을 수 있을까?"
+- 시드를 고정해 무작위로 집을 배정하고 분석을 시작합니다
+
+```{python}
+# import numpy as np
+# np.random.seed(2025)
+# selected_index = np.random.choice(df.index)
+# simpsons_home = df.loc[selected_index]
+# simpsons_home[["Neighborhood", "YearBuilt", "SalePrice"]]
+```
+
+---
+
+## 🗺️ 1. 위험 지역 지도 시각화 {.tabset}
+
+### 🔧 파생 변수 생성: 자재 기반 화재 위험 등급
+```{python}
+# def material_risk(row):
+#     if row['Exterior1st'] in ['Wd Sdng', 'WdShing', 'Plywood']: return 'High'
+#     elif row['Exterior1st'] in ['VinylSd', 'MetalSd']: return 'Medium'
+#     else: return 'Low'
+
+# df['FireRisk'] = df.apply(material_risk, axis=1)
+# df['FireRisk'].value_counts()
+```
+
+### 📊 통계 검정: 위험 지역별 가격 비교 (t-test)
+```{python}
+# from scipy.stats import ttest_ind
+# high_risk = df[df['FireRisk'] == 'High']['SalePrice']
+# low_risk = df[df['FireRisk'] == 'Low']['SalePrice']
+# ttest_ind(high_risk, low_risk, equal_var=False)
+```
+
+### 🗺️ 위험도 지도 시각화
+```{python}
+# import plotly.express as px
+# fig = px.scatter_mapbox(df, lat="Latitude", lon="Longitude", color="FireRisk",
+#                          mapbox_style="open-street-map", zoom=11,
+#                          title="Ames 지역 화재 위험도 분포")
+# fig.show()
+```
+
+---
+
+## 🚒 2. 화재 대응 자원 분포 분석
+
+```{python}
+# df['HasPool'] = df['PoolArea'] > 0
+# pool_stats = df.groupby('Neighborhood')['HasPool'].mean().sort_values(ascending=False)
+# pool_stats.head()
+```
+
+```{python}
+# fig = px.bar(pool_stats, title="🏊 화재 시 물공급 자원 분포 (Pool)")
+# fig.show()
+```
+
+---
+
+## 💥 3. 예상 피해액 모델링
+
+### 🔧 위험도 기반 피해 추정
+```{python}
+# def damage_estimate(row):
+#     base = row['SalePrice'] * 0.3
+#     if row['FireRisk'] == 'High': return base * 1.3
+#     elif row['FireRisk'] == 'Medium': return base
+#     else: return base * 0.7
+
+# df['EstimatedDamage'] = df.apply(damage_estimate, axis=1)
+```
+
+### 📊 표본 vs 모집단 평균 비교 (Z-test)
+```{python}
+# pop_mean = 180000  # 예시값
+# sample_mean = df['SalePrice'].mean()
+# std = df['SalePrice'].std()
+# n = len(df)
+# z = (sample_mean - pop_mean) / (std / np.sqrt(n))
+# z
+```
+
+---
+
+## 💰 4. 예상 보험금 산정
+
+### 🔧 보험금 산정식 반영
+```{python}
+# def insurance_estimate(row):
+#     risk_weight = {'High': 1.0, 'Medium': 0.8, 'Low': 0.6}[row['FireRisk']]
+#     water_supply = 0.8 if row['HasPool'] else 1.0
+#     aging = 1.2 if row['YearBuilt'] < 1970 else 1.0
+#     return row['EstimatedDamage'] * risk_weight * water_supply * aging
+
+# df['ExpectedInsurance'] = df.apply(insurance_estimate, axis=1)
+```
+
+```{python}
+# fig = px.histogram(df, x="ExpectedInsurance", nbins=30,
+#                    title="예상 보험금 분포")
+# fig.show()
+```
+
+---
+
+## 🏁 5. 결론: 심슨 가족에게 안전한 집 추천
+
+```{python}
+# df['RiskScore'] = df['EstimatedDamage'] / df['ExpectedInsurance']
+# safe_houses = df[df['FireRisk'] == 'Low'].sort_values(by='RiskScore').head(5)
+# safe_houses[["Neighborhood", "SalePrice", "ExpectedInsurance"]]
+```
+
+::: {.card title="🔥 분석 요약"}
+- 화재 위험은 외장재와 연식에 영향을 받음
+- 물공급 자원은 보험금 산정에 크게 작용함
+- 심슨 가족은 보험금이 높은 **저위험 + 수영장 보유 주택**이 유리함
+:::
+
+✅ "산정액에 따라 집을 고르면 좋을 것 같아요!"
