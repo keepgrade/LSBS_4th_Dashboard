@@ -3,14 +3,17 @@ from dataloader import DataLoader
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import seaborn as sns
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import Lasso, Ridge
 from sklearn.metrics import mean_squared_error, r2_score
 from scipy import stats
+from sklearn.impute import SimpleImputer
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
+
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -19,26 +22,35 @@ dataloader = DataLoader()
 
 # 1. 전처리 수행
 def preprocess_data(ames):
-    # 결측치 처리 > 수치형 변수의 결측치는 중앙값으로 대체
+    # 수치형 변수와 범주형 변수 분리
     numeric_cols = ames.select_dtypes(include=['int64', 'float64']).columns
-    for col in numeric_cols:
-        if ames[col].isnull().sum() > 0:
-            ames[col].fillna(ames[col].median(), inplace=True)
-    
-    # 결측치 처리 > 범주형 변수의 결측치는 최빈값으로 대체
     categorical_cols = ames.select_dtypes(include=['object']).columns
     for col in categorical_cols:
         if ames[col].isnull().sum() > 0:
-            ames[col].fillna(ames[col].mode()[0], inplace=True)
+            # 최빈값 직접 계산 후 할당
+            mode_value = ames[col].mode()[0]
+            ames[col].fillna(mode_value, inplace=True)
     
-    # 이상치 처리
+    numeric_data = ames[numeric_cols].copy()
+
+    # 수치형 변수 결측치 대체 (by.회귀)
+    mice_imputer = IterativeImputer(max_iter=10, random_state=42)
+    ames[numeric_cols] = mice_imputer.fit_transform(numeric_data)
+    
+    # 범주형 변수 결측치 대체 (by.최빈값)
+    for col in categorical_cols:
+        if ames[col].isnull().sum() > 0:
+            cat_imputer = SimpleImputer(strategy='most_frequent')
+            ames[col] = cat_imputer.fit_transform(ames[[col]])
+    
+    # 이상치 탐색
     Q1 = ames['SalePrice'].quantile(0.25)
     Q3 = ames['SalePrice'].quantile(0.75)
     IQR = Q3 - Q1
     lower_bound = Q1 - 1.5 * IQR
     upper_bound = Q3 + 1.5 * IQR
     
-    # 경계값으로 대체
+    # 이상치 경계값으로 대체
     ames.loc[ames['SalePrice'] < lower_bound, 'SalePrice'] = lower_bound
     ames.loc[ames['SalePrice'] > upper_bound, 'SalePrice'] = upper_bound
     
