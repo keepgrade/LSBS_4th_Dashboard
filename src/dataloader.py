@@ -7,36 +7,57 @@ import matplotlib.pyplot as plt
 import warnings
 import scipy as sp
 import scipy.stats as st
-import statsmodels.api as sm
-from statsmodels.formula.api import ols
-import statsmodels.formula.api as smf
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, Ridge, Lasso, RidgeCV, LassoCV
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.metrics import mean_squared_error, root_mean_squared_error
 from sklearn.impute import SimpleImputer
-from sklearn.datasets import load_iris
-from sklearn import linear_model
-from tqdm import tqdm
+
+from utils import risk_material, merge_dict, risk_ranges
 warnings.filterwarnings('ignore')
 
-
-
-def risk_material(material):
-    materials = ["CompShg", "Tar&Grv", "WdShake", "WdShngl", "Metal", "Roll", "Membran"]
-    risk_point = [2,2,5,4,1,3,3]
-    mat_risk = {mat: risk for mat, risk in zip(materials, risk_point)}
-
-    if material in mat_risk.keys():
-        return mat_risk[material]
-    else:
-        return 0
-    
 class DataLoader:
     def __init__(self):
         self.data = pd.read_csv('../data/ames.csv')
         
+    def make_risk_point(self, 
+                        data: pd.DataFrame):
+        RoofMatl_materials = ['CompShg', 'Tar&Grv', 'WdShake', 'WdShngl', 'Metal', 'Roll', 'Membran']
+        RoofMatl_risk_point = [2,2,5,4,1,3,3]
+        RoofMatl_dict = {m:p for m,p in zip(RoofMatl_materials, RoofMatl_risk_point)}
+        
+        Exterior1st_materials = ['Wd Sdng', 'HdBoard', 'MetalSd', 'VinylSd', 'WdShing', 'Plywood',
+            'Stucco', 'CemntBd', 'BrkFace', 'AsbShng', 'BrkComm', 'ImStucc',
+            'AsphShn', 'CBlock', 'PreCast']
+        Exterior1st_risk_point = [5,4,1,3,5,5,2,1,1,1,1,2,4,1,1]
+        Exterior1st_dict = {m:p for m,p in zip(Exterior1st_materials, Exterior1st_risk_point)}
+        
+        
+        Exterior2nd_materials = ['Wd Sdng', 'HdBoard', 'MetalSd', 'VinylSd', 'Wd Shng', 'Plywood',
+            'Stucco', 'CmentBd', 'AsbShng', 'ImStucc', 'BrkFace', 'Brk Cmn',
+            'CBlock', 'AsphShn', 'Stone', 'PreCast']
+        Exterior2nd_risk_point = [5,4,1,3,5,5,2,1,1,2,1,1,1,4,1,1]
+        Exterior2nd_dict = {m:p for m,p in zip(Exterior2nd_materials, Exterior2nd_risk_point)}
+        
+        MasVnrType_materials = ['BrkFace', 'Stone', 'BrkCmn']
+        MasVnrType_risk_point = [1,1,1]
+        MasVnrType_dict = {m:p for m,p in zip(MasVnrType_materials, MasVnrType_risk_point)}
+        
+        params = ['RoofMatl', 'Exterior1st', 'Exterior2nd','MasVnrType']
+        
+        # merged_dict
+        merged_dict = merge_dict(left = RoofMatl_dict,
+                                right = Exterior1st_dict)
+        merged_dict = merge_dict(left = merged_dict,
+                                right = Exterior2nd_dict)
+        merged_dict = merge_dict(left = merged_dict,
+                                right = MasVnrType_dict)
+        
+        # make 
+        for param in params:
+            data[f'Risk_{param}'] = data[param].apply(lambda x: risk_material(material = x, mat_risk = merged_dict)) 
+
+        data['Risk_WoodDeckSF'] = data['WoodDeckSF'].apply(risk_ranges)
+        
+        return data
 
     def load_data(self):
         self.data['Date'] = pd.to_datetime(
@@ -44,8 +65,7 @@ class DataLoader:
             format='%Y-%m'
         )
         
-        self.data['Risk_RoofMatl'] = self.data['RoofMatl'].apply(risk_material) 
-
+        self.data = self.make_risk_point(self.data)
         
         return self.data
     

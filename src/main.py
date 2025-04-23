@@ -21,11 +21,10 @@ from sklearn import linear_model
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
-
+os.chdir('./src')
 from dataloader import DataLoader
 
 # load data 
 
-os.chdir('./src')
 dataloader = DataLoader()
 dataset = dataloader.load_data()
