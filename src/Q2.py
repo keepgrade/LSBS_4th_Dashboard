@@ -11,10 +11,9 @@ import statsmodels.api as sm
 from statsmodels.formula.api import ols
 import statsmodels.formula.api as smf
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, RidgeCV, LassoCV
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, root_mean_squared_error
 from sklearn.impute import SimpleImputer
 from sklearn.datasets import load_iris

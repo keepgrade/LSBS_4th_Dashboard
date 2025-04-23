@@ -22,10 +22,16 @@ from tqdm import tqdm
 warnings.filterwarnings('ignore')
 
 
-from dataloader import DataLoader
 
-# load data 
+class DataLoader:
+    def __init__(self):
+        self.data = pd.read_csv('../data/ames.csv')
+        
 
-os.chdir('./src')
-dataloader = DataLoader()
-dataset = dataloader.load_data()
+    def load_data(self):
+        self.data['Date'] = pd.to_datetime(
+            self.data['YrSold'].astype(str) + '-' + self.data['MoSold'].astype(str),
+            format='%Y-%m'
+        )
+        return self.data
+    
