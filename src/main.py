@@ -21,3 +21,10 @@ from sklearn.datasets import load_iris
 from sklearn import linear_model
 from tqdm import tqdm
 warnings.filterwarnings('ignore')
+
+
+df = pd.read_csv('../data/ames.csv')
+
+df.head()
+df.info()
+
