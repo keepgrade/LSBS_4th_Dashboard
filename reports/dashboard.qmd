@@ -1,0 +1,21 @@
+---
+title: "1st dashboard"
+format: dashboard
+jupyter: python3
+---
+
+## Row {height="70%"}
+this is first content
+
+```{python}
+
+print('hello world')
+```
+
+## Row {height="30%"}
+this is second content
+
+```{python}
+
+print('hello world')
+```
