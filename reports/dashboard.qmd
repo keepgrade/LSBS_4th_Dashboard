@@ -26,7 +26,9 @@ format:
 import pandas as pd
 import numpy as np
 np.random.seed(2025)
-df = pd.read_csv('../data/ames.csv')
+dataloader = DataLoader()
+dataset = dataloader.load_data()
+df = dataset
 simpsons_home = df.sample(1)
 simpsons_home[["Neighborhood", "YearBuilt", "SalePrice"]]
 ```
