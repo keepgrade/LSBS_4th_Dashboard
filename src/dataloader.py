@@ -86,7 +86,7 @@ class DataLoader:
         # → 건물 1평당 단가 = 실제 화재 피해 추정 단가    
         dataset['BuildingPricePerTotalSF'] = (dataset['BuildingValue'] / dataset['TotalSF'])* 35.5832  # (1평 = 3.305 m², 1m² = 35.5832$)
 
-        return None
+        return dataset
     
     def load_data(self):
         self.data['Date'] = pd.to_datetime(
