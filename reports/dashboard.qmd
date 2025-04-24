@@ -141,8 +141,14 @@ dataset['Risk_Avg'] = (
 # 위험도 평균을 5단계로 그룹화
 dataset['Risk_Level'] = dataset['Risk_Avg'].round()
 
+# 화재 위험도별 평단가 두개다 막대그래프로 그래프 그리기 필요 코드
+mean_RiskLevel = dataset.groupby('Risk_Level')['BuildingPricePerTotalSF'].mean()
+
+# 중앙값 평단가 바 그래프 그리기 위해 필요 코드
+median_RiskLevel = dataset.groupby('Risk_Level')['BuildingPricePerTotalSF'].median()
+
 # 결측값 제거
-dataset = dataset.dropna(subset=['PricePerArea'])
+dataset = dataset.dropna(subset=['BuildingPricePerTotalSF'])
 
 color_map = {
     1: '#ffffff',   # White
@@ -547,7 +553,7 @@ plt.show()
 # 3. 화재 위험 지표와 가격 상관관계 분석
 
 
-## Row {height=20%}
+## Row {height=10%}
 ::: {.card title="🔥 분석 목적 요약"}
 화재 위험 등급이 높을수록 주택 가격이 낮은가?   **위험도와 가격 간의 관계를 통계적으로 검정**하고,  그 결과를 시각화와 함께 해석합니다.
 :::
@@ -558,9 +564,102 @@ plt.show()
 ### Column {width=50%}
 ::: {.card title="📊 아노바 검정 결과"}
 - ✅ 위험도별 가격 평균 차이 있음  
+
+```{python}
+#|echo : false
+
+dataset = dataset[dataset['Risk_Level'] != 5]
+
+# 분산분석 과정
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+
+
+model = ols('BuildingPricePerTotalSF ~ C(Risk_Level)',data=dataset).fit()
+anova_results = sm.stats.anova_lm(model, typ=2)
+
+# 아노바 검정 결과
+print(anova_results)
+
+```
+
+```{python}
+#|echo : false
+import scipy.stats as sp
+W, p = sp.shapiro(model.resid)
+# 아노바 검정 결과
+# 잔차 정규성 검정 결과 출력해야하는 내용 !!!!!!
+print(f'검정통계량: {W:.3f}, 유의확률: {p:.3f}')
+
+```
+
+
+```{python}
+# echo : false
+# 아노바 검정 결과
+# 잔차 정규성 검정 결과 출력해야하는 내용 !!!!!!
+from scipy.stats import probplot
+plt.figure(figsize=(6, 6))
+probplot(model.resid, dist="norm", plot=plt)
+# 해석 잔차 정규성 만족안함
+```
+
 - ✅ Bartlett 등분산성 검정 통과  
+
+```{python}
+#|echo : false
+# bartlett을 사용한 잔차의 등분산성 검증 결과 등분산성 역시 성립하지 않음
+from scipy.stats import bartlett
+from scipy.stats import kruskal
+groups = [1, 2, 3, 4]
+grouped_residuals = [model.resid[dataset['Risk_Level'] == group] for group in groups]
+test_statistic, p_value = bartlett(*grouped_residuals)
+# 아노바 검정 결과
+# 출력해야 하는 내용!!!
+print(f"검정통계량: {test_statistic}, p-value: {p_value}")
+
+```
+
 - ✅ 사후검정(Dunnett's Test): 일부 그룹 간 유의한 차이 존재  
 :::
+
+### Column {width=50%}
+::: {.card title="📊 아노바 검정 결과"}
+```{python}
+
+
+# 아노바 검정결과 x 여기부터 비모수 검정 부분 step12 나누는거로 해야할듯
+# 따라서 Kruskal-Wallis 검정 (비모수 검정)을 통해 위험도별 주택 평단가의 차이가 통계적으로 유의미한지 확인
+grouped = [group['BuildingPricePerTotalSF'].values for name, group in dataset.groupby('Risk_Level')]
+
+kruskal_stat, kruskal_p = kruskal(*grouped)
+
+# Kruskal-Wallis 검정결과
+kruskal_result = {
+    "검정통계량 (H)": kruskal_stat,
+    "p-value": kruskal_p,
+    "결론": "✔️ 그룹 간 차이가 유의함 (p < 0.05)" if kruskal_p < 0.05 else "❌ 유의한 차이 없음 (p ≥ 0.05)"
+}
+# 위험도별 주택 평단가 차이가 하나 이상은 존재함을 확인
+# 따라서 사후검정을 통해 어떤 위험도끼리 차이가 있는지 확인
+
+# 출력해야하는 결과
+kruskal_result
+
+
+
+
+# dunn-test(비모수 사후검정)
+# 이것도 크루스칼이랑 같이 두번째 step에
+import scikit_posthocs as sp
+posthoc = sp.posthoc_dunn(dataset, val_col='BuildingPricePerTotalSF', group_col='Risk_Level', p_adjust='bonferroni')
+# 비모수 사후검정 실시 결과 위험도 2말고는 차이가 있음을 확인 불가
+# 결과보여주기 위해 출력해야하는 부분
+posthoc
+```
+
+:::
+
 
 ### Column {width=50%}
 ```{python}
@@ -575,10 +674,28 @@ plt.show()
 ## Row {height=30%}
 ### Column {width=50%}
 ::: {.card title="📈 위험도별 주택가격 Box Plot"}
+
 ```{python}
 #| echo: false
-# seaborn 또는 plotly box plot 시각화 (위험도별 SalePrice)
+
+# 하나의 그래프로 평균과 중앙값 비교
+fig, ax = plt.subplots(figsize=(8, 5))
+mean_RiskLevel.sort_index().plot(kind='bar', position=0, width=0.4, color='salmon', edgecolor='black', label='Mean', ax=ax)
+median_RiskLevel.sort_index().plot(kind='bar', position=1, width=0.4, color='skyblue', edgecolor='black', label='Median', ax=ax)
+
+_=ax.set_xlabel('Risk_Level')
+_=ax.set_ylabel('House Price')
+_=ax.set_title('Mean vs Median House Price by Risk Level')
+_=ax.grid(axis='y', linestyle='--', alpha=0.5)
+_=ax.set_xticks(range(len(mean_RiskLevel)))
+_=ax.set_xticklabels(mean_RiskLevel.index)
+_=ax.legend()
+
+plt.tight_layout()
+plt.show()
+
 ```
+
 :::
 
 ### Column {width=50%}
@@ -604,14 +721,6 @@ plt.show()
 
 :::
 
-
-## 💡 선택 사항 (추가하면 좋은 요소)
-
-| 요소 | 설명 |
-|------|------|
-| 📌 `Shapiro-Wilk 검정 p-value` 박스 | `0.01 이하` → 정규성 부족 명시 |
-| 📉 `잔차 plot` (fitted vs residual) | 선형성 or 등분산성 확인 시 사용 |
-| 🗂️ 필터 추가 | 위험도별/지역별 결과 필터링 가능
 
 
 # 4. 보험료 산정 모델링
