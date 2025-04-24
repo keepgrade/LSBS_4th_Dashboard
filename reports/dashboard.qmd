@@ -14,7 +14,142 @@ df = px.data.gapminder()
 
 # 0. 인트로 (문제정의)
 
+1. 화재보험 이미지
+2. 우리는 보험사 
+3. Ames시 보험 금액 얼마일까? 
+4. 
+
 # 1. 화재 위험 지역 시각화
+
+## Column {width=60%}
+```{python}
+#| echo: false
+import os
+import shutil
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import warnings
+import scipy as sp
+import scipy.stats as st
+import statsmodels.api as sm
+from statsmodels.formula.api import ols
+import statsmodels.formula.api as smf
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, RidgeCV, LassoCV
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.metrics import mean_squared_error, root_mean_squared_error
+from sklearn.impute import SimpleImputer
+from sklearn.datasets import load_iris
+from sklearn import linear_model
+from tqdm import tqdm
+warnings.filterwarnings('ignore')
+
+os.chdir('../src')
+from dataloader import DataLoader
+
+# load data 
+
+dataloader = DataLoader()
+dataset = dataloader.load_data()
+```
+
+```{python}
+#| echo: false
+import pandas as pd
+import plotly.graph_objects as go
+
+dataset['PricePerArea'] = dataset['SalePrice'] / dataset['LotArea']
+# ---------------------------
+# 💰 지역별 '평단가' 기반 등급 분류 (5단계)
+# ---------------------------
+price_per_area_by_neigh = dataset['PricePerArea']
+q20 = price_per_area_by_neigh.quantile(0.20)
+q40 = price_per_area_by_neigh.quantile(0.40)
+q60 = price_per_area_by_neigh.quantile(0.60)
+q80 = price_per_area_by_neigh.quantile(0.80)
+
+def classify_price_grade(price):
+    if price <= q20:
+        return 1
+    elif price <= q40:
+        return 2
+    elif price <= q60:
+        return 3
+    elif price <= q80:
+        return 4
+    else:
+        return 5
+
+
+
+#  위험도 평균 열 생성
+dataset['Risk_Avg'] = (
+    dataset['Risk_RoofMatl'] * 0.30 +
+    dataset['Risk_Exterior1st'] * 0.30 +
+    dataset['Risk_Exterior2nd'] * 0.10 +
+    dataset['Risk_MasVnrType'] * 0.10 +
+    dataset['Risk_WoodDeckSF'] * 0.2
+)
+
+# 위험도 평균을 5단계로 그룹화
+dataset['Risk_Level'] = dataset['Risk_Avg'].round()
+
+# 결측값 제거
+dataset = dataset.dropna(subset=['PricePerArea'])
+
+# 색상 설정
+color_map = {
+    1: 'white', 2: 'gray', 3: 'yellow', 4: 'orange', 5: 'red'
+}
+
+# 소방서 위치
+fire_stations = pd.DataFrame({
+    'Name': ['Station 1', 'Station 2', 'Station 3'],
+    'Latitude': [42.034862, 42.021596, 42.001115],
+    'Longitude': [-93.615031, -93.649759, -93.609166]
+})
+
+# 지도 레이아웃
+layout_mapbox = dict(
+    mapbox=dict(style="open-street-map", center=dict(lat=42.0345, lon=-93.62), zoom=11),
+    margin={"r": 0, "t": 40, "l": 0, "b": 0},
+    title='Ames 시 위험도 기반 주택 시각화 & 소방서 위치'
+)
+
+# 주택 마커
+traces = []
+for level, color in color_map.items():
+    df = dataset[dataset['Risk_Level'] == level]
+    traces.append(go.Scattermapbox(
+        lat=df['Latitude'], lon=df['Longitude'],
+        mode='markers',
+        marker=dict(size=7, color=color, opacity=0.6),
+        text='가격: $' + df['SalePrice'].astype(str) + '<br>위험도: ' + df['Risk_Level'].astype(str),
+        name=f'위험도 {level}'
+    ))
+
+# 소방서 마커
+fire_trace = go.Scattermapbox(
+    lat=fire_stations['Latitude'],
+    lon=fire_stations['Longitude'],
+    mode='markers+text',
+    marker=dict(size=12, color='black'),
+    text=fire_stations['Name'],
+    name='소방서',
+    textposition='top right'
+)
+
+# 시각화
+fig = go.Figure(data=traces + [fire_trace], layout=layout_mapbox)
+fig.show()
+
+```
+
+## Column {width=40%}
+
 
 # 2. 평단가별 지역 시각화
 
