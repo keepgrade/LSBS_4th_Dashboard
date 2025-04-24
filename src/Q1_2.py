@@ -84,7 +84,7 @@ layout_mapbox = dict(
         zoom=11
     ),
     margin={"r": 0, "t": 40, "l": 0, "b": 0},
-    title='Ames 시 주택 가격대 & 소방서 위치'
+    title='Ames 시 거래가격 & 소방서 위치'
 )
 
 # ---------------------------
@@ -185,8 +185,8 @@ dataset['BuildingValue'] = dataset['SalePrice'] - dataset['LandValue']
 
 # ✅ 건물 평단가 계산
 # BuildingPricePerTotalSF = BuildingValue / TotalSF
-# → 건물 1평당 단가 = 실제 화재 피해 추정 단가
-dataset['BuildingPricePerTotalSF'] = dataset['BuildingValue'] / dataset['TotalSF']
+# → 건물 1평당 단가 = 실제 화재 피해 추정 단가    
+dataset['BuildingPricePerTotalSF'] = (dataset['BuildingValue'] / dataset['TotalSF'])* 35.5832  # (1평 = 3.305 m², 1m² = 35.5832$)
 
 # ✅ 등급화 (5분위)
 q20 = dataset['BuildingPricePerTotalSF'].quantile(0.20)
