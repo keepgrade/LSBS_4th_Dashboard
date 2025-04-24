@@ -121,3 +121,55 @@ import scikit_posthocs as sp
 posthoc = sp.posthoc_dunn(dataset, val_col='PricePerArea', group_col='Risk_Level', p_adjust='bonferroni')
 posthoc
 
+
+
+import pandas as pd
+import plotly.graph_objects as go
+
+# 색상 설정
+color_map = {
+    1: 'white', 2: 'gray', 3: 'yellow', 4: 'orange', 5: 'red'
+}
+
+# 소방서 위치
+fire_stations = pd.DataFrame({
+    'Name': ['Station 1', 'Station 2', 'Station 3'],
+    'Latitude': [42.034862, 42.021596, 42.001115],
+    'Longitude': [-93.615031, -93.649759, -93.609166]
+})
+
+# 지도 레이아웃
+layout_mapbox = dict(
+    mapbox=dict(style="open-street-map", center=dict(lat=42.0345, lon=-93.62), zoom=11),
+    margin={"r": 0, "t": 40, "l": 0, "b": 0},
+    title='Ames 시 위험도 기반 주택 시각화 & 소방서 위치'
+)
+
+# 주택 마커
+traces = []
+for level, color in color_map.items():
+    df = dataset[dataset['Risk_Level'] == level]
+    traces.append(go.Scattermapbox(
+        lat=df['Latitude'], lon=df['Longitude'],
+        mode='markers',
+        marker=dict(size=7, color=color, opacity=0.6),
+        text='가격: $' + df['SalePrice'].astype(str) + '<br>위험도: ' + df['Risk_Level'].astype(str),
+        name=f'위험도 {level}'
+    ))
+
+# 소방서 마커
+fire_trace = go.Scattermapbox(
+    lat=fire_stations['Latitude'],
+    lon=fire_stations['Longitude'],
+    mode='markers+text',
+    marker=dict(size=12, color='black'),
+    text=fire_stations['Name'],
+    name='소방서',
+    textposition='top right'
+)
+
+# 시각화
+fig = go.Figure(data=traces + [fire_trace], layout=layout_mapbox)
+fig.show()
+
+correlation = dataset[['PricePerArea', 'Risk_Avg']].corr()
