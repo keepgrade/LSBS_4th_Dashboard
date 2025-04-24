@@ -1,6 +1,6 @@
 --- 
 title: "화재 보험 산정"
-author: "Analytics Group"
+author: "6조 : 구경민, 신태선, 오윤지, 이재우"
 format: 
   dashboard:
     theme: flatly
@@ -13,7 +13,7 @@ format:
 
 ### Column {width=50%}
 ::: {.card title="Ames Fire Insurance"}
-<img src="images/Ames_Fire_Insurance.png" style="width: 100%; height: auto; border-radius: 12px;" />
+<img src="images/ames.png" style="width: 100%; height: auto; border-radius: 12px;" />
 :::
 
 ### Column {width=50%}
@@ -66,10 +66,6 @@ format:
 
 ### Column {width=60%}
 ::: {.card title="🗺️ 1. 위험도 기반 주택 시각화"}
-- Plotly 지도 기반으로 각 주택의 `Risk_Level`을 색상으로 시각화
-- 소방서 위치도 함께 시각화
-
-
 ```{python}
 #| echo: false
 import os
@@ -148,23 +144,48 @@ dataset['Risk_Level'] = dataset['Risk_Avg'].round()
 # 결측값 제거
 dataset = dataset.dropna(subset=['PricePerArea'])
 
-# 색상 설정
 color_map = {
-    1: 'white', 2: 'gray', 3: 'yellow', 4: 'orange', 5: 'red'
+    1: '#ffffff',   # White
+    2: '#ffe5e5',   # Very light pink
+    3: '#ff9999',   # Light red
+    4: '#ff4d4d',   # Red-orange
+    5: '#cc0000'    # Deep red
 }
 
-# 소방서 위치
-fire_stations = pd.DataFrame({
-    'Name': ['Station 1', 'Station 2', 'Station 3'],
-    'Latitude': [42.034862, 42.021596, 42.001115],
-    'Longitude': [-93.615031, -93.649759, -93.609166]
-})
 
-# 지도 레이아웃
 layout_mapbox = dict(
-    mapbox=dict(style="open-street-map", center=dict(lat=42.0345, lon=-93.62), zoom=11),
-    margin={"r": 0, "t": 40, "l": 0, "b": 0},
-    title='Ames 시 위험도 기반 주택 시각화 & 소방서 위치'
+    mapbox=dict(
+        style="open-street-map",  # 💡 깔끔한 기본 스타일
+        center=dict(lat=42.0345, lon=-93.62),
+        zoom=11
+    ),
+    title=dict(
+        text='🔥 Ames 시 화재 위험도 기반 주택 시각화',
+        font=dict(size=22, color='black'),
+        x=0.05,
+        xanchor='left'
+    ),
+    margin=dict(l=20, r=20, t=60, b=20),
+    legend=dict(
+        title=dict(
+            text='<b>위험도 분류</b>',
+            side='top'
+        ),
+        orientation='h', 
+        yanchor='bottom', 
+        y=0.02, 
+        xanchor='center', 
+        x=0.5, 
+        bgcolor='rgba(255, 255, 255, 0.8)', 
+        bordercolor='rgba(200, 200, 200, 0.8)', 
+        borderwidth=1,
+        font=dict(size=12),
+        itemwidth=50,
+        entrywidth=80,
+        valign='middle',
+        traceorder='normal',
+        itemsizing='constant',
+    )
 )
 
 # 주택 마커
@@ -179,37 +200,61 @@ for level, color in color_map.items():
         name=f'위험도 {level}'
     ))
 
-# 소방서 마커
-fire_trace = go.Scattermapbox(
-    lat=fire_stations['Latitude'],
-    lon=fire_stations['Longitude'],
-    mode='markers+text',
-    marker=dict(size=12, color='black'),
-    text=fire_stations['Name'],
-    name='소방서',
-    textposition='top right'
-)
 
 # 시각화
-fig1 = go.Figure(data=traces + [fire_trace], layout=layout_mapbox)
+fig1 = go.Figure(data=traces, layout=layout_mapbox)
 fig1.show()
 
 ```
 :::
 
+
 ### Column {width=40%}
+
+
 ::: {.card title="📋 2. 화재 위험도 산정 기준표"}
-- 자재별 화재 위험도 가중치:
-    - RoofMatl: 30%
-    - Exterior1st: 30%
-    - Exterior2nd: 10%
-    - MasVnrType: 10%
-    - WoodDeckSF: 20%
+
+<div style="font-size: 13px; overflow-x: auto;">
+
+|  | 위험도1 | 위험도2 | 위험도3 | 위험도4 | 위험도5 |
+| --- | --- | --- | --- | --- | --- |
+| 지붕 자재 (30%) | Metal | CompShg, Tar&Grv | Roll,    Membran | WdShngl | WdShake |
+| 외벽 재질(30%) | MetalSd, CemntBd, BrkFace... | ImStucc,Stucco | VinylSd, | HdBoard, AsphShn | Wd Sdng, WdShing, Plywood |
+| 외벽 장식 재질(10%) | MetalSd,CemntBd,BrkFace... | Stucco, ImStucc | VinylSd | HdBoard, AsphShn | Wd Sdng, WdShing, Plywood |
+| 외벽 마감재(10%) | BrkFace,Stone,BrkCmn |  |  |  |  |
+| 목재 바닥 넓이(20%) | 0 | 1~100 | 101~250 | 251~400 | 400 |
+
+- **지붕과 외벽**은 화재 시 가장 먼저 타는 **1차적 취약 요소**입니다.  
+- **목재 바닥**은 불씨에 쉽게 착화되며,  
+- **외벽 마감재와 장식**은 상대적으로 위험도는 낮지만 **가연성일 경우 주의가 필요**합니다.
+
+📎 자세한 기준은 NFPA 공식 가이드에서 확인할 수 있습니다.  
+🔗 [NFPA - Preparing Homes for Wildfire](https://www.nfpa.org/education-and-research/wildfire/preparing-homes-for-wildfire)
+</div>
+
 :::
 
+#### Row {height=50%}
+
 ::: {.card title="📊 3. 위험도별 주택수량 막대그래프"}
-```python
-# sns.countplot(x='Risk_Level', data=dataset)
+```{python}
+#| echo: false
+
+cnt_RiskLevel = dataset['Risk_Level'].value_counts().sort_index()
+
+fig, ax = plt.subplots(figsize=(6, 4))
+cnt_RiskLevel.plot(kind='bar', color='skyblue', edgecolor='black', ax=ax)
+
+# 텍스트 설정 (반환값 무시)
+_ = ax.set_xlabel('Risk_Level')
+_ = ax.set_ylabel('# of house by risk level')
+_ = ax.set_title('Risk_level_house_cnt')
+_ = ax.set_xticks(range(len(cnt_RiskLevel)))
+_ = ax.set_xticklabels(cnt_RiskLevel.index.astype(str))
+_ = ax.grid(axis='y', linestyle='--', alpha=0.5)
+_ = plt.xticks(rotation=0)
+
+plt.show()
 ```
 :::
 
@@ -219,28 +264,13 @@ fig1.show()
 ## Row {height=60%}
 
 
-::: {.card title="📊 탭 구조 예시"}
+::: {.card title="📊 1. 가격 & 평단 가격 시각화"}
 
 ::: {.panel-tabset}
 
 #### 거래가격 지도
 ```{python}
-
 #| echo: false
-# ---------------------------
-# 🚒 소방서 위치 데이터
-# ---------------------------
-fire_stations = pd.DataFrame({
-    'Name': ['Station 1', 'Station 2', 'Station 3'],
-    'Address': [
-        '1300 Burnett Ave, Ames, IA 50010',
-        '132 Welch Ave, Ames, IA 50014',
-        '2400 S Duff Ave, Ames, IA 50010'
-    ],
-    'Latitude': [42.034862, 42.021596, 42.001115],
-    'Longitude': [-93.615031, -93.649759, -93.609166]
-})
-
 # ---------------------------
 # 💰 가격 등급 분류 (5단계)
 # ---------------------------
@@ -269,11 +299,11 @@ dataset['PriceGrade'] = dataset['Neighborhood'].apply(classify_price_grade)
 # 🎨 색상 매핑
 # ---------------------------
 color_map = {
-    'Very Low': 'indigo',
-    'Low': 'purple',
-    'Normal': 'gray',
-    'High': 'blue',
-    'Very High': 'navy'
+    'Very Low': '#ffffff',  # 흰색
+    'Low': '#cce5ff',       # 연한 하늘색
+    'Normal': '#6699cc',    # 중간 파랑
+    'High': '#3366cc',      # 진한 파랑
+    'Very High': '#000080'  # 네이비
 }
 
 # ---------------------------
@@ -281,12 +311,37 @@ color_map = {
 # ---------------------------
 layout_mapbox = dict(
     mapbox=dict(
-        style="open-street-map",
-        center=dict(lat=42.034534, lon=-93.620369),
+        style="open-street-map",  # 💡 깔끔한 기본 스타일
+        center=dict(lat=42.0345, lon=-93.62),
         zoom=11
     ),
-    margin={"r": 0, "t": 40, "l": 0, "b": 0},
-    title='Ames 시 거래가격 & 소방서 위치'
+    title=dict(
+        text='💲Ames 시 부동산 거래가격',
+        font=dict(size=22, color='black'),
+        x=0.05,
+        xanchor='left'
+    ),
+    margin=dict(l=20, r=20, t=60, b=20),
+    legend=dict(
+        title=dict(
+            text='<b>피트당 부동산 거래가격</b>',
+            side='top'
+        ),
+        orientation='h', 
+        yanchor='bottom', 
+        y=0.02, 
+        xanchor='center', 
+        x=0.5, 
+        bgcolor='rgba(255, 255, 255, 0.8)', 
+        bordercolor='rgba(200, 200, 200, 0.8)', 
+        borderwidth=1,
+        font=dict(size=12),
+        itemwidth=50,
+        entrywidth=80,
+        valign='middle',
+        traceorder='normal',
+        itemsizing='constant',
+    )
 )
 
 # ---------------------------
@@ -300,28 +355,14 @@ for grade, color in color_map.items():
         lon=subset['Longitude'],
         mode='markers',
         marker=dict(size=7, color=color, opacity=0.6),
-        text='$' + subset['SalePrice'].astype(int).astype(str) +
-             '<br>평단가:$',
+        text='거래액 : $' + subset['SalePrice'].astype(int).astype(str),
         name=f"{grade} Area"
     )
     home_traces.append(trace)
 
 
-# ---------------------------
-# 🚒 소방서 마커
-# ---------------------------
-fire_trace = go.Scattermapbox(
-    lat=fire_stations['Latitude'],
-    lon=fire_stations['Longitude'],
-    mode='markers+text',
-    marker=dict(size=12, color='red'),
-    text=fire_stations['Name'],
-    name='소방서',
-    textposition='top right'
-)
 
-
-fig2 = go.Figure(data=home_traces + [fire_trace], layout=layout_mapbox)
+fig2 = go.Figure(data=home_traces, layout=layout_mapbox)
 fig2.show()  # ← 이 줄이 반드시 있어야 합니다!
 
 ```
@@ -379,11 +420,11 @@ dataset['PriceGrade'] = dataset['BuildingPricePerTotalSF'].apply(classify_price_
 
 # ✅ 색상 매핑
 color_map = {
-    'Very Low': 'indigo',
-    'Low': 'purple',
-    'Normal': 'gray',
-    'High': 'blue',
-    'Very High': 'navy'
+    'Very Low': '#ffffff',  # 흰색
+    'Low': '#cce5ff',       # 연한 하늘색
+    'Normal': '#6699cc',    # 중간 파랑
+    'High': '#3366cc',      # 진한 파랑
+    'Very High': '#000080'  # 네이비
 }
 
 # ✅ 소방서 위치 데이터
@@ -393,15 +434,35 @@ fire_stations = pd.DataFrame({
     'Longitude': [-93.615031, -93.649759, -93.609166]
 })
 
-# ✅ 지도 설정
 layout_mapbox = dict(
     mapbox=dict(
-        style="open-street-map",
-        center=dict(lat=42.034534, lon=-93.620369),
+        style="open-street-map",  # 💡 깔끔한 기본 스타일
+        center=dict(lat=42.0345, lon=-93.62),
         zoom=11
     ),
-    margin={"r": 0, "t": 40, "l": 0, "b": 0},
-    title='Ames 시 건물 피해 단가 기준 주택 등급 & 소방서 위치',
+    title=dict(
+        text='💲Ames 시 부동산 피트당 거래가격',
+        font=dict(size=22, color='black'),
+        x=0.05,
+        xanchor='left'
+    ),
+    margin=dict(l=20, r=20, t=60, b=20),
+    legend=dict(
+        title='<b>피트당 부동산 거래가격</b>', 
+        orientation='h', 
+        yanchor='bottom', 
+        y=0.02, 
+        xanchor='center', 
+        x=0.5, 
+        bgcolor='rgba(255, 255, 255, 0.8)', 
+        bordercolor='rgba(200, 200, 200, 0.8)', 
+        borderwidth=1,
+        font=dict(size=12),
+        itemwidth=100,
+        valign='middle',
+        traceorder='normal',
+        itemsizing='constant'
+    )
 )
 
 # ✅ 주택 마커
@@ -414,25 +475,14 @@ for grade, color in color_map.items():
         mode='markers',
         marker=dict(size=10, color=color, opacity=0.6),
         text='총가:$' + subset['SalePrice'].astype(int).astype(str) +
-             '<br>건물평단가:$' + subset['BuildingPricePerTotalSF'].round(1).astype(str),
+             '<br>건물 피트당 단가:$' + subset['BuildingPricePerTotalSF'].round(1).astype(str),
         name=f"{grade} Area"
     )
     home_traces.append(trace)
 
-# ✅ 소방서 마커
-fire_trace = go.Scattermapbox(
-    lat=fire_stations['Latitude'],
-    lon=fire_stations['Longitude'],
-    mode='markers+text',
-    marker=dict(size=12, color='red'),
-    text=fire_stations['Name'],
-    name='소방서',
-    textposition='top right'
-)
-
 
 # ✅ 지도 출력
-fig3 = go.Figure(data=home_traces + [fire_trace], layout=layout_mapbox)
+fig3 = go.Figure(data=home_traces, layout=layout_mapbox)
 
 
 fig3.show()
@@ -443,15 +493,44 @@ fig3.show()
 
 ### Column {width=40%}
 
-::: {.card title="📐 2. 건물 피해 단가 기준 계산식 (근거)"}
-- TotalSF = TotalBsmtSF + 1stFlrSF + 2ndFlrSF
-- LandValue, BuildingValue는 가중 평균 방식으로 분리
-- 피해 단가: BuildingValue / TotalSF
+::: {.card title="📐 2. 피트당 단가 (근거)"}
+
+수식 보여주고 
+어떤 근거로 작성했는지
+했을때 효과가 무엇인지 
+어떻게 보여줄건지 
 :::
 
 ::: {.card title="📉 3. 가격 분포 막대그래프"}
-```python
-# sns.histplot(data=dataset, x='BuildingPricePerTotalSF')
+```{python}
+#| echo: false
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# ✅ 한글 폰트 설정
+plt.rcParams['font.family'] = 'Malgun Gothic'  # 윈도우용
+# plt.rcParams['font.family'] = 'AppleGothic'  # Mac용
+plt.rcParams['axes.unicode_minus'] = False     # 마이너스 깨짐 방지
+
+# ✅ 히스토그램 그리기
+plt.figure(figsize=(10, 5))
+sns.histplot(
+    data=dataset,
+    x='BuildingPricePerTotalSF',
+    bins=30,
+    color='#6699cc',
+    edgecolor='black'
+)
+
+# ✅ 제목과 축 레이블
+_ = plt.title( " 건물 평단가 분포", fontsize=14)
+_ = plt.xlabel("건물 평단가 ($/평)", fontsize=12)
+_ = plt.ylabel("주택 수", fontsize=12)
+_ = plt.grid(axis='y', linestyle='--', alpha=0.5)
+
+plt.tight_layout()
+plt.show()
+
 ```
 :::
 
