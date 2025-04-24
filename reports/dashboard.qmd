@@ -7,21 +7,69 @@ format:
     css: red-white.css
 --- 
 
-```{python}
-import plotly.express as px
-df = px.data.gapminder()
-```
+# 0. 들어가는 말
 
-# 0. 인트로 (문제정의)
+## Row {height=50%}
 
-1. 화재보험 이미지
-2. 우리는 보험사 
-3. Ames시 보험 금액 얼마일까? 
-4. 
+### Column {width=50%}
+::: {.card title="Ames Fire Insurance"}
+<img src="images/Ames_Fire_Insurance.png" style="width: 100%; height: auto; border-radius: 12px;" />
+:::
+
+### Column {width=50%}
+::: {.card title="🔥 우리는 LS 화재보험사"}
+
+에임즈(Ames) 시에 **새로운 보험상품**을 출시하려 합니다.  
+그런데 이 지역은 **화재 위험도**가 어떤지,  
+**보험금은 얼마로 책정해야** 수익이 날 수 있을지,  
+아무도 정확히 모릅니다.
+
+- 📦 주택 가격은 어떤지  
+- 🧱 자재는 화재에 강한지  
+- 🔥 위험 지역은 어디인지  
+- 💰 보험 수익은 어디서 발생하는지  
+
+**이제 데이터를 기반으로,  
+에임즈 시의 보험료를 직접 산정해보겠습니다.**
+
+:::
+
+
+## Row {height=50%}
+### Column {width=50%}
+::: {.card title="📌 프로젝트 배경"}
+
+최근 **기후 변화**와 **노후화된 주택** 문제로,  
+미국 내 화재 사고가 증가하고 있습니다.  
+캘리포니아 산불 사례처럼, 보험사는 막대한 손실을 입을 수 있습니다.
+
+그렇다면, 우리는 **사전 예측과 리스크 분석을 통해**  
+보다 정밀한 보험료 책정이 가능할까요?
+
+**Ames Housing 데이터를 기반으로  
+데이터 기반 화재보험 모델을 구축합니다.**
+:::
+
+
+### Column {width=50%}
+::: {.card title="🧭 분석 흐름 요약"}
+1️⃣ **화재 위험 시각화**  
+2️⃣ **화재 대응 자원 분석**  
+3️⃣ **피해액 예측 모델링**  
+4️⃣ **보험금 산정 공식 설계**  
+5️⃣ **추천 리스트 & 정책 제안**  
+:::
 
 # 1. 화재 위험 지역 시각화
 
-## Column {width=60%}
+## Row {height=60%}
+
+### Column {width=60%}
+::: {.card title="🗺️ 1. 위험도 기반 주택 시각화"}
+- Plotly 지도 기반으로 각 주택의 `Risk_Level`을 색상으로 시각화
+- 소방서 위치도 함께 시각화
+
+
 ```{python}
 #| echo: false
 import os
@@ -143,150 +191,416 @@ fire_trace = go.Scattermapbox(
 )
 
 # 시각화
-fig = go.Figure(data=traces + [fire_trace], layout=layout_mapbox)
-fig.show()
+fig1 = go.Figure(data=traces + [fire_trace], layout=layout_mapbox)
+fig1.show()
+
+```
+:::
+
+### Column {width=40%}
+::: {.card title="📋 2. 화재 위험도 산정 기준표"}
+- 자재별 화재 위험도 가중치:
+    - RoofMatl: 30%
+    - Exterior1st: 30%
+    - Exterior2nd: 10%
+    - MasVnrType: 10%
+    - WoodDeckSF: 20%
+:::
+
+::: {.card title="📊 3. 위험도별 주택수량 막대그래프"}
+```python
+# sns.countplot(x='Risk_Level', data=dataset)
+```
+:::
+
+
+# 2. 피해 단가 기준 분석
+
+## Row {height=60%}
+
+
+::: {.card title="📊 탭 구조 예시"}
+
+::: {.panel-tabset}
+
+#### 거래가격 지도
+```{python}
+
+#| echo: false
+# ---------------------------
+# 🚒 소방서 위치 데이터
+# ---------------------------
+fire_stations = pd.DataFrame({
+    'Name': ['Station 1', 'Station 2', 'Station 3'],
+    'Address': [
+        '1300 Burnett Ave, Ames, IA 50010',
+        '132 Welch Ave, Ames, IA 50014',
+        '2400 S Duff Ave, Ames, IA 50010'
+    ],
+    'Latitude': [42.034862, 42.021596, 42.001115],
+    'Longitude': [-93.615031, -93.649759, -93.609166]
+})
+
+# ---------------------------
+# 💰 가격 등급 분류 (5단계)
+# ---------------------------
+price_by_neigh = dataset.groupby('Neighborhood')['SalePrice'].mean()
+q20 = price_by_neigh.quantile(0.20)
+q40 = price_by_neigh.quantile(0.40)
+q60 = price_by_neigh.quantile(0.60)
+q80 = price_by_neigh.quantile(0.80)
+
+def classify_price_grade(neighborhood):
+    price = price_by_neigh[neighborhood]
+    if price <= q20:
+        return 'Very Low'
+    elif price <= q40:
+        return 'Low'
+    elif price <= q60:
+        return 'Normal'
+    elif price <= q80:
+        return 'High'
+    else:
+        return 'Very High'
+
+dataset['PriceGrade'] = dataset['Neighborhood'].apply(classify_price_grade)
+
+# ---------------------------
+# 🎨 색상 매핑
+# ---------------------------
+color_map = {
+    'Very Low': 'indigo',
+    'Low': 'purple',
+    'Normal': 'gray',
+    'High': 'blue',
+    'Very High': 'navy'
+}
+
+# ---------------------------
+# 🧭 지도 설정
+# ---------------------------
+layout_mapbox = dict(
+    mapbox=dict(
+        style="open-street-map",
+        center=dict(lat=42.034534, lon=-93.620369),
+        zoom=11
+    ),
+    margin={"r": 0, "t": 40, "l": 0, "b": 0},
+    title='Ames 시 거래가격 & 소방서 위치'
+)
+
+# ---------------------------
+# 🏡 주택 마커 (등급별 분리)
+# ---------------------------
+home_traces = []
+for grade, color in color_map.items():
+    subset = dataset[dataset['PriceGrade'] == grade]
+    trace = go.Scattermapbox(
+        lat=subset['Latitude'],
+        lon=subset['Longitude'],
+        mode='markers',
+        marker=dict(size=7, color=color, opacity=0.6),
+        text='$' + subset['SalePrice'].astype(int).astype(str) +
+             '<br>평단가:$',
+        name=f"{grade} Area"
+    )
+    home_traces.append(trace)
+
+
+# ---------------------------
+# 🚒 소방서 마커
+# ---------------------------
+fire_trace = go.Scattermapbox(
+    lat=fire_stations['Latitude'],
+    lon=fire_stations['Longitude'],
+    mode='markers+text',
+    marker=dict(size=12, color='red'),
+    text=fire_stations['Name'],
+    name='소방서',
+    textposition='top right'
+)
+
+
+fig2 = go.Figure(data=home_traces + [fire_trace], layout=layout_mapbox)
+fig2.show()  # ← 이 줄이 반드시 있어야 합니다!
 
 ```
 
-## Column {width=40%}
+#### Ames 평단가별 거래 가격
+
+```{python}
+#| echo: false
+
+# ✅ 총 건물 면적 계산
+# TotalSF = TotalBsmtSF + 1stFlrSF + 2ndFlrSF
+# → 지하 + 1층 + 2층을 합친 총 연면적 (평단가 계산 기준)
+dataset['TotalSF'] = dataset['TotalBsmtSF'] + dataset['1stFlrSF'] + dataset['2ndFlrSF']
+
+# ✅ 가중 평균 기반 LandValue, BuildingValue 계산
+alpha = 0.4  # 땅과 건물의 상대적 중요도
+
+# denominator = α × LotArea + (1 - α) × TotalSF
+# → 전체 면적 중 땅과 건물이 차지하는 가중합 (가격 분배 기준)
+denominator = alpha * dataset['LotArea'] + (1 - alpha) * dataset['TotalSF']
+
+# LandValue = (α × LotArea) / (denominator) × SalePrice
+# → 전체 주택 가격 중 땅 면적이 차지하는 비중만큼을 땅값으로 분배
+dataset['LandValue'] = (alpha * dataset['LotArea']) / denominator * dataset['SalePrice']
+
+# BuildingValue = SalePrice - LandValue
+# → 전체 집값에서 땅값을 빼고 남은 것이 건물값 (즉, 피해 대상)
+dataset['BuildingValue'] = dataset['SalePrice'] - dataset['LandValue']
+
+# ✅ 건물 평단가 계산
+# BuildingPricePerTotalSF = BuildingValue / TotalSF
+# → 건물 1평당 단가 = 실제 화재 피해 추정 단가    
+dataset['BuildingPricePerTotalSF'] = (dataset['BuildingValue'] / dataset['TotalSF'])* 35.5832  # (1평 = 3.305 m², 1m² = 35.5832$)
 
 
-# 2. 평단가별 지역 시각화
+# ✅ 등급화 (5분위)
+q20 = dataset['BuildingPricePerTotalSF'].quantile(0.20)
+q40 = dataset['BuildingPricePerTotalSF'].quantile(0.40)
+q60 = dataset['BuildingPricePerTotalSF'].quantile(0.60)
+q80 = dataset['BuildingPricePerTotalSF'].quantile(0.80)
 
-# 3. 화재 발생 시 피해액 예측
+def classify_price_grade(x):
+    if x <= q20:
+        return 'Very Low'
+    elif x <= q40:
+        return 'Low'
+    elif x <= q60:
+        return 'Normal'
+    elif x <= q80:
+        return 'High'
+    else:
+        return 'Very High'
 
-🚌 핵심 위험 지표 패널
-- 외장재 , 판매액, 내장재에 대해 위험 등급을 구하고 거기에 따른 피해액 책정
-- ⚠️우리의 표본이 대표성이 있는지 평균 분포를 보고 통계적 검증 후 도입해야함
-- 표본(판매된 집) vs. 모집단(전체 Ames 주택) 평균 비교 (Z-test)
+dataset['PriceGrade'] = dataset['BuildingPricePerTotalSF'].apply(classify_price_grade)
+
+# ✅ 색상 매핑
+color_map = {
+    'Very Low': 'indigo',
+    'Low': 'purple',
+    'Normal': 'gray',
+    'High': 'blue',
+    'Very High': 'navy'
+}
+
+# ✅ 소방서 위치 데이터
+fire_stations = pd.DataFrame({
+    'Name': ['Station 1', 'Station 2', 'Station 3'],
+    'Latitude': [42.034862, 42.021596, 42.001115],
+    'Longitude': [-93.615031, -93.649759, -93.609166]
+})
+
+# ✅ 지도 설정
+layout_mapbox = dict(
+    mapbox=dict(
+        style="open-street-map",
+        center=dict(lat=42.034534, lon=-93.620369),
+        zoom=11
+    ),
+    margin={"r": 0, "t": 40, "l": 0, "b": 0},
+    title='Ames 시 건물 피해 단가 기준 주택 등급 & 소방서 위치',
+)
+
+# ✅ 주택 마커
+home_traces = []
+for grade, color in color_map.items():
+    subset = dataset[dataset['PriceGrade'] == grade]
+    trace = go.Scattermapbox(
+        lat=subset['Latitude'],
+        lon=subset['Longitude'],
+        mode='markers',
+        marker=dict(size=10, color=color, opacity=0.6),
+        text='총가:$' + subset['SalePrice'].astype(int).astype(str) +
+             '<br>건물평단가:$' + subset['BuildingPricePerTotalSF'].round(1).astype(str),
+        name=f"{grade} Area"
+    )
+    home_traces.append(trace)
+
+# ✅ 소방서 마커
+fire_trace = go.Scattermapbox(
+    lat=fire_stations['Latitude'],
+    lon=fire_stations['Longitude'],
+    mode='markers+text',
+    marker=dict(size=12, color='red'),
+    text=fire_stations['Name'],
+    name='소방서',
+    textposition='top right'
+)
+
+
+# ✅ 지도 출력
+fig3 = go.Figure(data=home_traces + [fire_trace], layout=layout_mapbox)
+
+
+fig3.show()
+```
+:::
+
+:::
+
+### Column {width=40%}
+
+::: {.card title="📐 2. 건물 피해 단가 기준 계산식 (근거)"}
+- TotalSF = TotalBsmtSF + 1stFlrSF + 2ndFlrSF
+- LandValue, BuildingValue는 가중 평균 방식으로 분리
+- 피해 단가: BuildingValue / TotalSF
+:::
+
+::: {.card title="📉 3. 가격 분포 막대그래프"}
+```python
+# sns.histplot(data=dataset, x='BuildingPricePerTotalSF')
+```
+:::
 
 ## Row {height=20%}
-
-```{python}
-#| content: valuebox
-#| title: "평균위험도"
-#| icon: "exclamation-triangle"
-#| color: "warning"
-dict(icon = "currency-dollar",
-    color = "secondary",
-    value = "3.13")
-```
-
-```{python}
-#| content: valuebox
-#| title: "고위험건물"
-#| icon: building
-#| color: danger
-dict(
-  value = "142건"
-)
-```
-
-```{python}
-#| content: valuebox
-#| title: "예상 피해액"
-#| icon: pencil
-#| color: danger
-dict(
-  value = "$24.5M"
-)
-```
+::: {.card title="📝 1에 대한 해석"}
+- 건물 피해 단가 기반 보험료 산정이 타당함을 확인
+- 고가 주택일수록 피해 예상액이 커짐
+:::
 
 
-```{python}
-#| content: valuebox
-#| title: "결정계수 (R², Lasso)"
-#| icon: pencil
-#| color: warnings
-dict(
-  value = "0.81"
-)
-```
 
 
-## Row {title="핵심 위험 지표 패널" height=20%}
 
+# 3. 화재 위험 지표와 가격 상관관계 분석
+
+
+## Row {height=20%}
+::: {.card title="🔥 분석 목적 요약"}
+화재 위험 등급이 높을수록 주택 가격이 낮은가?   **위험도와 가격 간의 관계를 통계적으로 검정**하고,  그 결과를 시각화와 함께 해석합니다.
+:::
+
+
+
+## Row {height=40%}
 ### Column {width=50%}
-::: {.card title="위험 요소 분석 차트"}
-* 외장재
-* 내장재
-* 가격위험도 비교
+::: {.card title="📊 아노바 검정 결과"}
+- ✅ 위험도별 가격 평균 차이 있음  
+- ✅ Bartlett 등분산성 검정 통과  
+- ✅ 사후검정(Dunnett's Test): 일부 그룹 간 유의한 차이 존재  
 :::
 
 ### Column {width=50%}
-::: {.card title="지역별 위험도 히트맵"}
-* 지역별 위험도 수준은 색상으로
+```{python}
+#| echo: false
+# QQ Plot + Shapiro-Wilk 정규성 검정 시각화
+# 위험도별 가격의 잔차 정규성 판단
+
+# 예시 코드: plot + 결과 해석 포함
+```
+
+
+## Row {height=30%}
+### Column {width=50%}
+::: {.card title="📈 위험도별 주택가격 Box Plot"}
+```{python}
+#| echo: false
+# seaborn 또는 plotly box plot 시각화 (위험도별 SalePrice)
+```
+:::
+
+### Column {width=50%}
+::: {.card title="🔍 결과 해석"}
+
+- 평균 가격:  
+  위험도 1 < 2 < 3 < ... < 5  
+  → **위험도가 높을수록 평균 가격은 낮은 경향**
+
+- 하지만,  
+  **위험도가 낮다고 가장 비싼 집은 아님**
+
+- 가격은 **취향 차이**, 재료, 위치 등의  
+  다양한 요인의 영향을 받음
+:::
+
+## Row {height=10%}
+::: {.card title="📌 결론 요약"}
+
+- 🔥 **화재 위험도는 가격에 통계적으로 유의미한 영향**을 미칩니다.  
+- 🏷️ 하지만, **가격은 단일 요인이 아닌 복합 요인**의 결과입니다.  
+  (예: 부촌 = 안전 + 디자인 + 입지)
+
+:::
+
+
+## 💡 선택 사항 (추가하면 좋은 요소)
+
+| 요소 | 설명 |
+|------|------|
+| 📌 `Shapiro-Wilk 검정 p-value` 박스 | `0.01 이하` → 정규성 부족 명시 |
+| 📉 `잔차 plot` (fitted vs residual) | 선형성 or 등분산성 확인 시 사용 |
+| 🗂️ 필터 추가 | 위험도별/지역별 결과 필터링 가능
+
+
+# 4. 보험료 산정 모델링
+
+## Row {height=20%}
+::: {.card title="📌 분석 목적"}
+거래가 없는 주택에도 적용 가능한 **예측 모델**을 통해 보험료를 산정합니다.
+:::
+
+## Row {height=40%}
+
+### Column {width=50%}
+::: {.card title="🔧 보험료 예측 모델"}
+- 사용 모델: Lasso, Ridge, ElasticNet
+- 주요 변수: 위험도, 자재, 노후도, 평단가 등
+- 성능 평가: R², RMSE, 교차검증
+
+```python
+# 회귀 모델 학습 및 평가 코드
+```
+:::
+
+### Column {width=50%}
+::: {.card title="🗺️ 예측 보험료 지도 시각화"}
+- 각 주택의 보험료 예측값을 지도에 시각화
+- 색상 = 보험료 크기, Hover 시 상세 금액 표시
+
+```python
+# Scattermapbox 지도 시각화 코드
+```
 :::
 
 ## Row {height=20%}
+::: {.card title="💰 보험료 산정 공식"}
+예상 보험료 = 예측 피해액 × 화재 위험 가중치 × 자재 손상률 × 노후도 계수
 
-### Column {width=50%}
-::: {.card title="모델예측 vs 실제비교"}
-산점도 : 예측 vs 실제 피해액
+> 예시: 24,500 × 1.2 × 1.1 × 0.9 ≈ **29,106 USD**
 :::
 
+
+# 5. 손익분기점 분석
+
+## Row {height=20%}
+::: {.card title="📌 분석 목적"}
+에임즈 전체 보험료 총합과 보장 총액을 바탕으로 **손익분기점**을 분석합니다.
+:::
+
+## Row {height=30%}
 ### Column {width=50%}
-::: {.card title="특정 중요도 차트"}
-Lasso/Ridge 모델 특성 영향력
+::: {.card title="🎯 위험-수익 매트릭스 시각화"}
+각 구역(또는 주택)을 위험도와 수익성 축으로 표현한 4분면 분석입니다.  
+수익이 낮고 위험이 높은 지역은 보험 인수 대상에서 제외하는 전략이 필요합니다.
+:::
+
+
+### Column {width=50%}
+::: {.card title="📈 손익 시나리오 그래프"}
+```python
+# x축: 보장 비율 (%)
+# y축: 수익 또는 손실 (USD)
+```
 :::
 
 ## Row {height=20%}
-::: {.card}
-연도별 위험도
-(건축 연도 기준)
-:::
-
-::: {.card}
-표본 대표성 검증
-(z-test 결과)
-:::
-
-::: {.card}
-고급 필터링 패널
-(위험도, 지역, 건축년도 필터)
+::: {.card title="📌 결론 요약"}
+- 보험료 모델로 **모든 주택의 보험료 산정 가능**
+- 손익 시나리오 분석을 통해 **수익 구조 명확화**
+- 데이터 기반 보험 전략 수립 기반 마련
 :::
 
 
-
-# 4. 예상 보험금 산정
-# 5. 결론 및 정책 제안
-- 우리가 분석했던 것 바탕으로 예상 보험액 산정
-- 심슨 가족을 위한 화재 안전 주택 추천 리스트 제공 ( 위험도, 보험금, 자원 접근성 종합)
-## Row {height=0%}
-### Column {width=50%}
-
-::: {.card title="등급 생성"}
-* 파생 변수 생성: 주택 자재 컬럼들 활용한 화재 위험 등급 생성
-* 통계적 검증: t-검정으로 지역별 위험도 유의성 확인 (표본 → 모집단 추정)
-* 시각화 : 위험 등급별 색상 구분 (예시) 빨강, 초록
-:::
-
-### Column {width=50%}
-
-::: {.card title="김건우님의 주거 안전 상태"}
-- 계약서 분석 결과: 위험조항 3개 발견
-- 현 거주지 안전점수: 68/100 (하위 30%)
-- 교통접근성: 76/100 (상위 45%)
-:::
-
-## Row {height=100%}
-```{python}
-
-```
-
-
-# 👨‍🚒🧯 화재 대응 자원 분포 분석
-- 화재 발생 시 물공급 가능 시설이 있는지 파악
-- 수영장, 소방서 etc.
-
-## Row {height=10%} {.tabset}
-
-```{python}
-#| title: Population
-
-```
-
-```{python}
-#| title: Life Expectancy
-
-```
