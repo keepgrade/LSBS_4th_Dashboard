@@ -3,7 +3,8 @@ title: "화재 보험 산정"
 author: "Analytics Group"
 format: 
   dashboard:
-    theme: cyborg
+    theme: flatly
+    css: red-white.css
 --- 
 
 ```{python}

@@ -1,0 +1,292 @@
+{
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "title: \"LS_BS_4th_6조 - Ames Housing 화재 리스크 분석\"\n",
+        "format:\n",
+        "  dashboard:\n",
+        "    theme: morph\n",
+        "    logo: images/beetle.png\n",
+        "    sidebar: true\n",
+        "    page-navigation: true\n",
+        "    reader-mode: false\n",
+        "    nav-buttons:\n",
+        "      - icon: github\n",
+        "        href: https://github.com/your-repo-link\n",
+        "      - icon: globe\n",
+        "        href: https://your-site-link\n",
+        "---\n",
+        "\n",
+        "\n",
+        "## 📄 2025.4.22 회의록 – 주택 화재 리스크 및 보험금 예측 모델링\n",
+        "\n",
+        "**주제:** 심슨 가족이 Ames에 집을 샀을 때, 화재 발생 시 보험금은 얼마일까?\n",
+        "\n",
+        "---\n",
+        "\n",
+        "## 🔹 0. 인트로 – 랜덤 입주 & 문제 제기\n"
+      ],
+      "id": "2f473796"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "np.random.seed(2025)\n",
+        "dataloader = DataLoader()\n",
+        "dataset = dataloader.load_data()\n",
+        "df = dataset\n",
+        "simpsons_home = df.sample(1)\n",
+        "simpsons_home[[\"Neighborhood\", \"YearBuilt\", \"SalePrice\"]]"
+      ],
+      "id": "cd311da9",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "\n",
+        "## 🔹 1. 화재 위험 지역 시각화 {.tabset}\n",
+        "\n",
+        "### 🔧 화재 위험 점수 생성"
+      ],
+      "id": "bd619468"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "def assign_risk(exterior):\n",
+        "    if exterior in ['Wd Sdng', 'WdShing', 'Plywood']: return 'High'\n",
+        "    elif exterior in ['VinylSd', 'MetalSd']: return 'Medium'\n",
+        "    return 'Low'\n",
+        "\n",
+        "df['FireRiskGrade'] = df['Exterior1st'].apply(assign_risk)\n",
+        "df['FireRiskScore'] = df['FireRiskGrade'].map({'Low': 1, 'Medium': 2, 'High': 3})"
+      ],
+      "id": "1f0ac6b3",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 🧪 지역별 위험도 통계 검정"
+      ],
+      "id": "5cee631b"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "from scipy.stats import ttest_ind\n",
+        "df_low = df[df.FireRiskGrade == 'Low']\n",
+        "df_high = df[df.FireRiskGrade == 'High']\n",
+        "ttest_ind(df_low['SalePrice'], df_high['SalePrice'])"
+      ],
+      "id": "013a4e54",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### 🗺️ 지도 시각화 (Plotly 예시)"
+      ],
+      "id": "3dc1d5d0"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "import plotly.express as px\n",
+        "fig = px.scatter_mapbox(df, lat=\"Latitude\", lon=\"Longitude\",\n",
+        "                         color=\"FireRiskGrade\", mapbox_style=\"open-street-map\",\n",
+        "                         zoom=11, title=\"화재 위험 등급별 위치 시각화\")\n",
+        "fig.show()"
+      ],
+      "id": "77830a73",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "\n",
+        "## 🔹 2. 화재 대응 자원 분포 분석\n"
+      ],
+      "id": "717d2172"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df['ResourceScore'] = (\n",
+        "    (df['PoolArea'] > 0).astype(int) +\n",
+        "    (df['Fireplaces'] > 0).astype(int) +\n",
+        "    (df['GarageCars'] > 0).astype(int) +\n",
+        "    (df['FullBath'] > 0).astype(int)\n",
+        ")"
+      ],
+      "id": "e1f362eb",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "fig = px.box(df, x=\"FireRiskGrade\", y=\"ResourceScore\",\n",
+        "             title=\"위험 등급별 자원 점수 Boxplot\")\n",
+        "fig.show()"
+      ],
+      "id": "b5b07b4c",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "\n",
+        "## 🔹 3. 피해액 예측 모델링"
+      ],
+      "id": "290fccd5"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "from sklearn.linear_model import LinearRegression\n",
+        "from sklearn.model_selection import train_test_split\n",
+        "X = df[[\"FireRiskScore\", \"GrLivArea\", \"YearBuilt\", \"OverallQual\"]]\n",
+        "y = df[\"SalePrice\"] * 0.3\n",
+        "X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)\n",
+        "model = LinearRegression().fit(X_train, y_train)\n",
+        "df['ExpectedDamage'] = model.predict(X)"
+      ],
+      "id": "93f4eb7f",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "### ⚠ 모집단 대표성 검정"
+      ],
+      "id": "e8fda252"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "pop_mean = 180000\n",
+        "sample_mean = df['SalePrice'].mean()\n",
+        "std = df['SalePrice'].std()\n",
+        "n = len(df)\n",
+        "z = (sample_mean - pop_mean) / (std / np.sqrt(n))\n",
+        "z"
+      ],
+      "id": "27d7794a",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "\n",
+        "## 🔹 4. 예상 보험금 산정"
+      ],
+      "id": "ec563a6c"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "def insurance_calc(row):\n",
+        "    risk_weight = {'High': 1.2, 'Medium': 1.0, 'Low': 0.8}[row['FireRiskGrade']]\n",
+        "    resource_weight = 0.9 if row['ResourceScore'] >= 3 else 1.0\n",
+        "    aging_weight = 1.2 if (2025 - row['YearBuilt']) > 30 else 1.0\n",
+        "    return row['ExpectedDamage'] * risk_weight * resource_weight * aging_weight\n",
+        "\n",
+        "df['ExpectedInsurance'] = df.apply(insurance_calc, axis=1)"
+      ],
+      "id": "88b30e02",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "fig = px.histogram(df, x=\"ExpectedInsurance\", nbins=30,\n",
+        "                   title=\"예상 보험금 분포\")\n",
+        "fig.show()"
+      ],
+      "id": "49ec35fd",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "---\n",
+        "\n",
+        "## 🔹 5. 결론 및 보험금 산출 결과 정리 {.column width=100%}\n"
+      ],
+      "id": "98105e86"
+    },
+    {
+      "cell_type": "code",
+      "metadata": {},
+      "source": [
+        "df['RiskScore'] = df['ExpectedDamage'] / df['ExpectedInsurance']\n",
+        "df.sort_values(by='ExpectedInsurance', ascending=False).head(5)[[\"Neighborhood\", \"SalePrice\", \"ExpectedDamage\", \"ExpectedInsurance\"]]"
+      ],
+      "id": "2330e05a",
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {},
+      "source": [
+        "::: {.card title=\"📌 분석 요약\"}\n",
+        "- 심슨 가족의 주택을 포함한 화재 리스크 및 보험금 예측 결과 정리\n",
+        "- 예상 피해액과 주택 특성 기반 보험금 산출 완료\n",
+        ":::\n",
+        "\n",
+        "> “우리가 예측한 보험금과 위험도를 기반으로,\n",
+        "> 보다 안전하고 합리적인 보험 정책 설계 및 주택 선택에 도움을 줄 수 있습니다.”"
+      ],
+      "id": "fa27a33a"
+    }
+  ],
+  "metadata": {
+    "kernelspec": {
+      "name": "python3",
+      "language": "python",
+      "display_name": "Python 3 (ipykernel)",
+      "path": "C:\\Users\\USER\\AppData\\Roaming\\Python\\share\\jupyter\\kernels\\python3"
+    }
+  },
+  "nbformat": 4,
+  "nbformat_minor": 5
+}
